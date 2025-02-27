@@ -143,7 +143,6 @@ where
     data: Vec<Vec<T>>,
 }
 
-
 impl<T> Matrix<T>
 where
     T: Num + Copy,
@@ -169,7 +168,7 @@ where
             return Self { data: vec![] };
         }
         let data = values.chunks(cols).map(|row| row.to_vec()).collect();
-        Self { data }
+        Matrix { data }
     }
 
     /// Creates a matrix of zeros with the specified dimensions.
@@ -187,7 +186,7 @@ where
     /// assert_eq!(m.get_data(), &vec![vec![0, 0, 0], vec![0, 0, 0]]);
     /// ```
     pub fn zeros(rows: usize, cols: usize) -> Self {
-        Self {
+        Matrix {
             data: vec![vec!(T::zero(); cols); rows],
         }
     }
@@ -207,7 +206,7 @@ where
     /// assert_eq!(m.get_data(), &vec![vec![1, 1], vec![1, 1]]);
     /// ```
     pub fn ones(rows: usize, cols: usize) -> Self {
-        Self {
+        Matrix {
             data: vec![vec!(T::one(); cols); rows],
         }
     }
@@ -234,7 +233,7 @@ where
         for (i, row) in data.iter_mut().enumerate() {
             row[i] = T::one();
         }
-        Self { data }
+        Matrix { data }
     }
 
     /// Returns the shape of the matrix as a tuple `(rows, cols)`.
@@ -259,9 +258,9 @@ where
     /// # Example
     /// ```
     /// let m = Matrix::zeros(5, 3);
-    /// assert_eq!(m.rows(), 5);
+    /// assert_eq!(m.num_rows(), 5);
     /// ```
-    pub fn rows(&self) -> usize {
+    pub fn num_rows(&self) -> usize {
         self.data.len()
     }
 
@@ -273,9 +272,9 @@ where
     /// # Example
     /// ```
     /// let m = Matrix::zeros(4, 6);
-    /// assert_eq!(m.cols(), 6);
+    /// assert_eq!(m.num_cols(), 6);
     /// ```
-    pub fn cols(&self) -> usize {
+    pub fn num_cols(&self) -> usize {
         self.data[0].len()
     }
 
@@ -781,6 +780,73 @@ where
         }
 
         Some(result)
+    }
+
+    /// Converts the matrix elements from type `T` to type `U`.
+    ///
+    /// This function allows changing the numeric type of the matrix elements, provided that `T` can be converted into `U`.
+    ///
+    /// # Type Parameters
+    /// - `U`: The target numeric type to convert each element to. Must implement `Num` and be constructible from `T` using `From<T>`.
+    ///
+    /// # Returns
+    /// - A new `Matrix<U>` with all elements converted from `T` to `U`.
+    ///
+    /// # Examples
+    /// ```
+    /// let m: Matrix<u32> = Matrix::new(2, 2, vec![1, 2, 3, 4]);
+    /// let m_u64: Matrix<u64> = m.convert();
+    /// assert_eq!(m_u64, Matrix::new(2, 2, vec![1u64, 2, 3, 4]));
+    /// ```
+    pub fn convert<U>(&self) -> Matrix<U>
+    where
+        U: Num + From<T>,
+    {
+        Matrix {
+            data: self
+                .data
+                .iter()
+                .map(|row| row.iter().map(|val| (*val).into()).collect())
+                .collect(),
+        }
+    }
+
+    /// Attempts to convert the matrix to a new numeric type.
+    ///
+    /// This function tries to convert each element in the matrix from type `T` to type `U`. 
+    /// Since the conversion may fail, it returns a `Result`, where the `Ok` variant contains 
+    /// the converted matrix, and the `Err` variant contains the first encountered conversion error.
+    ///
+    /// # Returns
+    /// - `Ok(Matrix<U>)`: If all elements in the matrix successfully convert to type `U`.
+    /// - `Err(U::Error)`: If any element fails to convert, the error is returned.
+    ///
+    /// # Type Parameters
+    /// - `U`: The target numeric type that the matrix elements should be converted to.
+    ///
+    /// # Constraints
+    /// - `U: Num + TryFrom<T> + Clone`: `U` must implement `Num`, `TryFrom<T>`, and `Clone` to allow 
+    ///   numeric operations, fallible conversion, and cloning of elements.
+    ///
+    /// # Example
+    /// ```
+    /// let m: Matrix<i32> = Matrix::new(2, 2, vec![1, 2, 3, 4]);
+    /// let result: Result<Matrix<u8>, _> = m.try_convert();
+    ///
+    /// match result {
+    ///     Ok(matrix) => println!("Conversion successful: {}", matrix),
+    ///     Err(e) => println!("Conversion failed: {}", e),
+    /// }
+    /// ```
+    pub fn try_convert<U>(&self) -> Result<Matrix<U>, U::Error>
+    where 
+        U: Num + TryFrom<T>,
+    {
+        self.data
+        .iter() 
+        .map(|row| row.iter().map(|val| (*val).try_into()).collect())
+        .collect::<Result<Vec<Vec<U>>, _>>()
+        .map(|data| Matrix { data })
     }
 
     /// Displays the matrix in a human-readable format.
