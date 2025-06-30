@@ -130,7 +130,7 @@ impl fmt::Display for UNumber {
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut leading_zero = true;
-        for (i, digit) in self.digits.iter().enumerate() {
+        for (i, digit) in self.digits().iter().enumerate() {
             if *digit != 0 {
                 leading_zero = false;
             }
@@ -413,6 +413,62 @@ impl Div for UNumber {
     }
 }
 
+impl Rem for UNumber {
+    type Output = Self;
+
+    /// Computes the remainder of dividing one `UNumber` by another.
+    ///
+    /// This implementation allows using the `%` operator with `UNumber` instances.
+    /// If division by zero is attempted, an error message is printed and the program exits.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let num1 = UNumber::from("103");
+    /// let num2 = UNumber::from("10");
+    /// let rem = num1 % num2;
+    /// assert_eq!(format!("{}", rem), "3"); // 103 % 10 = 3
+    /// ```
+    fn rem(self, rhs: Self) -> Self::Output {
+        if rhs == UNumber::from("0") {
+            eprintln!("Error: Division by zero");
+            exit(1);
+        } else if self < rhs {
+            return self;
+        } else if self == rhs {
+            return UNumber::from("0");
+        }
+
+        let mut remainder: u128 = 0;
+        let divisor: u128 = rhs.digits.iter().fold(0, |acc, &d| acc * 10 + d as u128);
+
+        for &digit in &self.digits {
+            remainder = remainder * 10 + digit as u128;
+            let q_digit = remainder / divisor;
+            remainder -= q_digit * divisor;
+        }
+
+        let mut digits = VecDeque::new();
+        if remainder == 0 {
+            digits.push_back(0);
+        } else {
+            let mut temp = remainder;
+            let mut stack = Vec::new();
+            while temp > 0 {
+                stack.push((temp % 10) as u8);
+                temp /= 10;
+            }
+            while let Some(d) = stack.pop() {
+                digits.push_back(d);
+            }
+        }
+
+        Self {
+            digits: digits.into(),
+        }
+    }
+}
+
 impl AddAssign for UNumber {
     /// Adds another `UNumber` to the current instance in place.
     ///
@@ -479,5 +535,23 @@ impl DivAssign for UNumber {
     /// ```
     fn div_assign(&mut self, other: Self) {
         *self = self.clone() / other;
+    }
+}
+
+impl RemAssign for UNumber {
+    /// Computes the remainder of `self` divided by `rhs`, storing the result in `self`.
+    ///
+    /// This allows using the `%=` operator on `UNumber` instances.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut num1 = UNumber::from("103");
+    /// let num2 = UNumber::from("10");
+    /// num1 %= num2;
+    /// assert_eq!(format!("{}", num1), "3"); // 103 % 10 = 3
+    /// ```
+    fn rem_assign(&mut self, rhs: Self) {
+        *self = self.clone() % rhs;
     }
 }
